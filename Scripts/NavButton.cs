@@ -3,39 +3,23 @@ using UnityEngine;
 using VRC.SDKBase;
 using VRC.Udon;
 
+
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class NavButton : UdonSharpBehaviour
 {
     [HideInInspector] public GameObject groupContainer;
-    private Transform contentParent;
+    private UIGenerator uiGenerator;
 
-    void Start()
+    public void Initialize(UIGenerator generator)
     {
-        contentParent = transform.parent;
+        uiGenerator = generator;
     }
 
     public override void Interact()
     {
-        if (groupContainer == null) return;
-
-        if (contentParent != null)
+        if (uiGenerator != null)
         {
-            for (int i = 0; i < contentParent.childCount; i++)
-            {
-                Transform child = contentParent.GetChild(i);
-                if (child.gameObject != groupContainer)
-                {
-                    child.gameObject.SetActive(false);
-                }
-            }
+            uiGenerator.HandleNavButtonPress(this);
         }
-
-        GroupContainer groupScript = groupContainer.GetComponent<GroupContainer>();
-        if (groupScript != null && groupScript.parentGroup != null)
-        {
-            groupScript.parentGroup.SetActive(false);
-        }
-
-        groupContainer.SetActive(true);
     }
 }

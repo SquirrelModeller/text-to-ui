@@ -7,39 +7,18 @@ using VRC.Udon;
 public class BackButtonHandler : UdonSharpBehaviour
 {
     [HideInInspector] public GameObject currentGroup;
+    private UIGenerator uiGenerator;
+
+    public void Initialize(UIGenerator generator)
+    {
+        uiGenerator = generator;
+    }
+
     public override void Interact()
     {
-        if (currentGroup == null) return;
-
-        GroupContainer groupScript = currentGroup.GetComponent<GroupContainer>();
-        if (groupScript != null)
+        if (uiGenerator != null)
         {
-            if (groupScript.parentGroup != null)
-            {
-                groupScript.parentGroup.SetActive(true);
-
-                Transform parentContent = groupScript.parentGroup.transform.Find("Content");
-                if (parentContent != null)
-                {
-                    for (int i = 0; i < parentContent.childCount; i++)
-                    {
-                        parentContent.GetChild(i).gameObject.SetActive(true);
-                    }
-                }
-            }
-            else
-            {
-                Transform contentParent = transform.parent.parent;
-                for (int i = 0; i < contentParent.childCount; i++)
-                {
-                    Transform child = contentParent.GetChild(i);
-                    if (child.GetComponent<NavButton>() != null)
-                    {
-                        child.gameObject.SetActive(true);
-                    }
-                }
-            }
+            uiGenerator.HandleBackButtonPress(this);
         }
-        currentGroup.SetActive(false);
     }
 }
