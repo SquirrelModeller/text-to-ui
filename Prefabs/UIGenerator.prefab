@@ -261,10 +261,12 @@ MonoBehaviour:
     PrefabModifications: []
     SerializationNodes: []
   _udonSharpBackingUdonBehaviour: {fileID: 450814830361968795}
-  configFile: {fileID: 4900000, guid: b8cf57b8fda29204591b4965657e6bc4, type: 3}
+  configFile: {fileID: 0}
   navPrefab: {fileID: 7287658603018703471, guid: 649a0561a7c3890498159db24dff01e2,
     type: 3}
   btnPrefab: {fileID: 7287658603018703471, guid: 31d3b10e12f9f314cbe48d544f024d98,
+    type: 3}
+  backPrefab: {fileID: 8085752445798712143, guid: 6d0b9fb5fff57ca4ebd2d1aad8288142,
     type: 3}
   groupPrefab: {fileID: 334096083059925367, guid: 6cd4c96fa77899d458986401785c7267,
     type: 3}
@@ -273,6 +275,7 @@ MonoBehaviour:
   - writeToScreen
   actionManagers:
   - {fileID: 0}
+  shouldSyncUIAcrossClients: 1
 --- !u!114 &450814830361968795
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -292,7 +295,7 @@ MonoBehaviour:
   SynchronizePosition: 0
   AllowCollisionOwnershipTransfer: 0
   Reliable: 0
-  _syncMethod: 2
+  _syncMethod: 3
   serializedProgramAsset: {fileID: 11400000, guid: 73a979b444c940044818920b4fa4305e,
     type: 2}
   programSource: {fileID: 11400000, guid: dd61d369f70a4d94996f0ad3e6ca0c92, type: 2}

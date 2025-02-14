@@ -18,6 +18,7 @@ public class UIGenerator : UdonSharpBehaviour
     [SerializeField] private Transform contentParent;
     [SerializeField] private string[] actionIdentifiers;
     [SerializeField] private ButtonActionBase[] actionManagers;
+    [SerializeField] private bool shouldSyncUIAcrossClients;
 
     private const int MAX_ELEMENTS = 100;
     private const int INDENT_SIZE = 2;
@@ -41,7 +42,7 @@ public class UIGenerator : UdonSharpBehaviour
         ParseConfigFile();
         CacheAllContainers();
 
-        if (!Networking.IsOwner(gameObject))
+        if (!Networking.IsOwner(gameObject) && shouldSyncUIAcrossClients)
         {
             RequestSerialization();
         }
@@ -100,8 +101,10 @@ public class UIGenerator : UdonSharpBehaviour
         {
             activeStates[indexToken.Int] = state;
         }
-
-        RequestSerialization();
+        if (shouldSyncUIAcrossClients) 
+        {
+            RequestSerialization();
+        }
     }
 
     public void HandleNavButtonPress(NavButton button)
