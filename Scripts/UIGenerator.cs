@@ -5,6 +5,7 @@ using VRC.SDKBase;
 using VRC.Udon;
 using TMPro;
 using System;
+using VRC.SDK3.Data;
 
 [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
 public class UIGenerator : UdonSharpBehaviour
@@ -25,9 +26,12 @@ public class UIGenerator : UdonSharpBehaviour
     private GameObject[] allUIElements;
     private GameObject[] uiContainers;
     private int containerCount;
+    private int groupCounter = 0;
     private int[] elementDepths;
     private UIGenerator cachedUIGenerator;
+    private GroupContainer[] cachedGroupContainerScripts;
     private GameObject rootGroup;
+    private DataDictionary nameIdToIndex;
 
     private void Start()
     {
@@ -49,7 +53,9 @@ public class UIGenerator : UdonSharpBehaviour
         elementDepths = new int[MAX_ELEMENTS];
         activeStates = new bool[MAX_ELEMENTS];
         uiContainers = new GameObject[MAX_ELEMENTS];
+        cachedGroupContainerScripts = new GroupContainer[MAX_ELEMENTS];
         cachedUIGenerator = gameObject.GetComponentInChildren<UIGenerator>();
+        nameIdToIndex = new DataDictionary();
     }
 
     private void CacheAllContainers()
@@ -59,6 +65,7 @@ public class UIGenerator : UdonSharpBehaviour
         if (rootGroup != null)
         {
             uiContainers[containerCount] = rootGroup;
+            nameIdToIndex[new DataToken(uiContainers[containerCount].name)] = new DataToken(containerCount);
             containerCount++;
         }
         foreach (GameObject element in allUIElements)
@@ -69,6 +76,8 @@ public class UIGenerator : UdonSharpBehaviour
             if (navButton != null && navButton.groupContainer != null)
             {
                 uiContainers[containerCount] = navButton.groupContainer;
+                cachedGroupContainerScripts[containerCount] = navButton.groupContainer.GetComponent<GroupContainer>();
+                nameIdToIndex[new DataToken(uiContainers[containerCount].name)] = new DataToken(containerCount);
                 containerCount++;
             }
         }
@@ -86,14 +95,10 @@ public class UIGenerator : UdonSharpBehaviour
             targetElement.SetActive(state);
         }
 
-        for (int i = 0; i < containerCount; i++)
+        DataToken indexToken;
+        if (nameIdToIndex.TryGetValue(new DataToken(targetElement.name), out indexToken))
         {
-            if (uiContainers[i] == targetElement)
-            {
-                Debug.Log($"{targetElement} is cached and being synced now");
-                activeStates[i] = state;
-                break;
-            }
+            activeStates[indexToken.Int] = state;
         }
 
         RequestSerialization();
@@ -102,12 +107,12 @@ public class UIGenerator : UdonSharpBehaviour
     public void HandleNavButtonPress(NavButton button)
     {
         if (button.groupContainer == null) return;
-
-        GroupContainer groupScript = button.groupContainer.GetComponent<GroupContainer>();
-        if (groupScript != null && groupScript.parentGroup != null)
+        
+        DataToken indexToken;
+        if (nameIdToIndex.TryGetValue(new DataToken(button.groupContainer.name), out indexToken))
         {
-            Debug.Log($"{button}!");
-            UpdateUIState(groupScript.parentGroup, false);
+            UpdateUIState(cachedGroupContainerScripts[indexToken.Int].parentGroup, false);
+            
         }
 
         UpdateUIState(button.groupContainer, true);
@@ -117,7 +122,12 @@ public class UIGenerator : UdonSharpBehaviour
     {
         if (backButton.currentGroup == null) return;
 
-        GroupContainer groupScript = backButton.currentGroup.GetComponent<GroupContainer>();
+        GroupContainer groupScript = null;
+        DataToken indexToken;
+        if (nameIdToIndex.TryGetValue(new DataToken(backButton.currentGroup.name), out indexToken))
+        {
+            groupScript = cachedGroupContainerScripts[indexToken.Int];
+        }
         if (groupScript != null && groupScript.parentGroup != null)
         {
             UpdateUIState(groupScript.parentGroup, true);
@@ -224,7 +234,8 @@ public class UIGenerator : UdonSharpBehaviour
 
             if (navButton != null)
             {
-                GameObject existingGroup = GameObject.Find($"{element.name}_Group");
+                GameObject existingGroup = GameObject.Find($"{element.name}_Group_{groupCounter}");
+                groupCounter++;
                 if (existingGroup != null)
                 {
                     navButton.groupContainer = existingGroup;
