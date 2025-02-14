@@ -12,25 +12,27 @@ public class UIGenerator : UdonSharpBehaviour
     [SerializeField] private TextAsset configFile;
     [SerializeField] private GameObject navPrefab;
     [SerializeField] private GameObject btnPrefab;
+    [SerializeField] private GameObject backPrefab;
     [SerializeField] private GameObject groupPrefab;
     [SerializeField] private Transform contentParent;
     [SerializeField] private string[] actionIdentifiers;
     [SerializeField] private ButtonActionBase[] actionManagers;
-    private GameObject[] allUIElements;
-    private int[] elementDepths;
+
     private const int MAX_ELEMENTS = 100;
     private const int INDENT_SIZE = 2;
 
     [UdonSynced] private bool[] activeStates;
-    private VRCPlayerApi localPlayer;
+    private GameObject[] allUIElements;
     private GameObject[] uiContainers;
     private int containerCount;
+    private int[] elementDepths;
+    private UIGenerator cachedUIGenerator;
+    private GameObject rootGroup;
 
     private void Start()
     {
         if (configFile == null) return;
 
-        localPlayer = Networking.LocalPlayer;
         InitializeArrays();
         ParseConfigFile();
         CacheAllContainers();
@@ -47,23 +49,18 @@ public class UIGenerator : UdonSharpBehaviour
         elementDepths = new int[MAX_ELEMENTS];
         activeStates = new bool[MAX_ELEMENTS];
         uiContainers = new GameObject[MAX_ELEMENTS];
+        cachedUIGenerator = gameObject.GetComponentInChildren<UIGenerator>();
     }
 
     private void CacheAllContainers()
     {
         containerCount = 0;
 
-        for (int i = 0; i < contentParent.childCount; i++)
+        if (rootGroup != null)
         {
-            GameObject child = contentParent.GetChild(i).gameObject;
-            NavButton navButton = child.GetComponent<NavButton>();
-            if (navButton != null)
-            {
-                uiContainers[containerCount] = child;
-                containerCount++;
-            }
+            uiContainers[containerCount] = rootGroup;
+            containerCount++;
         }
-
         foreach (GameObject element in allUIElements)
         {
             if (element == null) continue;
@@ -81,7 +78,7 @@ public class UIGenerator : UdonSharpBehaviour
     {
         if (!Networking.IsOwner(gameObject))
         {
-            Networking.SetOwner(localPlayer, gameObject);
+            Networking.SetOwner(Networking.LocalPlayer, gameObject);
         }
 
         if (targetElement != null)
@@ -93,6 +90,7 @@ public class UIGenerator : UdonSharpBehaviour
         {
             if (uiContainers[i] == targetElement)
             {
+                Debug.Log($"{targetElement} is cached and being synced now");
                 activeStates[i] = state;
                 break;
             }
@@ -101,100 +99,42 @@ public class UIGenerator : UdonSharpBehaviour
         RequestSerialization();
     }
 
-    public override void OnDeserialization()
-    {
-        for (int i = 0; i < containerCount; i++)
-        {
-            if (uiContainers[i] != null)
-            {
-                uiContainers[i].SetActive(activeStates[i]);
-            }
-        }
-    }
-
     public void HandleNavButtonPress(NavButton button)
     {
         if (button.groupContainer == null) return;
 
-        bool isRootButton = button.transform.parent == contentParent;
-
-        if (isRootButton)
-        {
-            for (int i = 0; i < contentParent.childCount; i++)
-            {
-                Transform child = contentParent.GetChild(i);
-                NavButton navButton = child.GetComponent<NavButton>();
-                if (navButton != null)
-                {
-                    UpdateUIState(child.gameObject, false);
-                }
-            }
-        }
-        else
-        {
-            Transform contentParent = button.transform.parent;
-            if (contentParent != null)
-            {
-                for (int i = 0; i < contentParent.childCount; i++)
-                {
-                    Transform child = contentParent.GetChild(i);
-                    NavButton siblingNav = child.GetComponent<NavButton>();
-                    if (siblingNav != null && siblingNav.groupContainer != null)
-                    {
-                        UpdateUIState(siblingNav.groupContainer, false);
-                    }
-                }
-            }
-        }
-
         GroupContainer groupScript = button.groupContainer.GetComponent<GroupContainer>();
         if (groupScript != null && groupScript.parentGroup != null)
         {
+            Debug.Log($"{button}!");
             UpdateUIState(groupScript.parentGroup, false);
         }
 
         UpdateUIState(button.groupContainer, true);
     }
 
-
     public void HandleBackButtonPress(BackButtonHandler backButton)
     {
         if (backButton.currentGroup == null) return;
 
         GroupContainer groupScript = backButton.currentGroup.GetComponent<GroupContainer>();
-        if (groupScript != null)
+        if (groupScript != null && groupScript.parentGroup != null)
         {
-            if (groupScript.parentGroup != null)
-            {
-                UpdateUIState(groupScript.parentGroup, true);
+            UpdateUIState(groupScript.parentGroup, true);
 
-                Transform parentContent = groupScript.parentGroup.transform.Find("Content");
-                if (parentContent != null)
-                {
-                    for (int i = 0; i < parentContent.childCount; i++)
-                    {
-                        GameObject child = parentContent.GetChild(i).gameObject;
-                        UpdateUIState(child, true);
-                    }
-                }
-            }
-            else
+            Transform parentContent = groupScript.parentGroup.transform.Find("Content");
+            if (parentContent != null)
             {
-                Transform contentParent = backButton.transform.parent.parent;
-                for (int i = 0; i < contentParent.childCount; i++)
+                for (int i = 0; i < parentContent.childCount; i++)
                 {
-                    Transform child = contentParent.GetChild(i);
-                    if (child.GetComponent<NavButton>() != null)
-                    {
-                        UpdateUIState(child.gameObject, true);
-                    }
+                    GameObject child = parentContent.GetChild(i).gameObject;
+                    UpdateUIState(child, true);
                 }
             }
         }
 
         UpdateUIState(backButton.currentGroup, false);
     }
-
 
     private void ParseConfigFile()
     {
@@ -230,65 +170,111 @@ public class UIGenerator : UdonSharpBehaviour
         SetElementParent(newElement, currentIndex, lineDepth);
     }
 
-
+    // Root elements are at depth 0, root elements do not have a parent nav
+    // A parent gorup is therfore created, all navs can then be treated the same
     private void SetElementParent(GameObject element, int currentIndex, int depth)
     {
+        NavButton navButton = element.GetComponent<NavButton>();
+        GameObject parentGroup = null;
+
         if (depth == 0)
         {
-            element.transform.SetParent(contentParent, false);
-            return;
+            if (rootGroup == null)
+            {
+                rootGroup = Instantiate(groupPrefab);
+                rootGroup.name = "Root_Group";
+                rootGroup.transform.SetParent(contentParent, false);
+                rootGroup.SetActive(true);
+
+                Transform backBtn = rootGroup.transform.Find("BackButton");
+                if (backBtn != null)
+                {
+                    Destroy(backBtn.gameObject);
+                }
+
+                rootGroup.GetComponent<GroupContainer>().parentGroup = null;
+            }
+
+            parentGroup = rootGroup;
+        }
+        else
+        {
+
+            for (int i = currentIndex - 1; i >= 0; i--)
+            {
+                if (elementDepths[i] == depth - 1)
+                {
+                    NavButton parentNav = allUIElements[i].GetComponent<NavButton>();
+                    if (parentNav != null && parentNav.groupContainer != null)
+                    {
+                        parentGroup = parentNav.groupContainer;
+                        break;
+                    }
+                }
+            }
         }
 
-        for (int i = currentIndex - 1; i >= 0; i--)
+        if (parentGroup != null)
         {
-            if (elementDepths[i] != depth - 1) continue;
-
-            NavButton parentToggle = allUIElements[i].GetComponent<NavButton>();
-            if (parentToggle == null) break;
-
-            GameObject groupContainer = GetOrCreateGroupContainer(parentToggle, i, elementDepths[i]);
-            Transform contentArea = groupContainer.transform.Find("Content");
+            Transform contentArea = parentGroup.transform.Find("Content");
             if (contentArea != null)
             {
                 element.transform.SetParent(contentArea, false);
             }
-            break;
+
+            if (navButton != null)
+            {
+                GameObject existingGroup = GameObject.Find($"{element.name}_Group");
+                if (existingGroup != null)
+                {
+                    navButton.groupContainer = existingGroup;
+                }
+                else
+                {
+                    GameObject groupContainer = CreateGroupContainer(element, currentIndex, depth);
+                    navButton.groupContainer = groupContainer;
+
+                    GroupContainer groupScript = groupContainer.GetComponent<GroupContainer>();
+                    if (groupScript != null)
+                    {
+                        groupScript.parentGroup = parentGroup;
+                    }
+                }
+            }
         }
     }
 
-    private GameObject GetOrCreateGroupContainer(NavButton parentToggle, int index, int depth)
+    private GameObject CreateGroupContainer(GameObject navElement, int index, int depth)
     {
-        if (parentToggle.groupContainer != null) return parentToggle.groupContainer;
-
         GameObject groupContainer = Instantiate(groupPrefab);
-        groupContainer.name = $"{allUIElements[index].name}_Group";
+        groupContainer.name = $"{navElement.name}_Group";
         groupContainer.transform.SetParent(contentParent, false);
         groupContainer.SetActive(false);
 
-        SetupGroupContainer(groupContainer, index, depth);
-        parentToggle.groupContainer = groupContainer;
-
-        return groupContainer;
-    }
-
-    private void SetupGroupContainer(GameObject container, int index, int depth)
-    {
-        GroupContainer groupScript = container.GetComponent<GroupContainer>();
+        GroupContainer groupScript = groupContainer.GetComponent<GroupContainer>();
         if (groupScript != null)
         {
             groupScript.parentGroup = FindParentGroup(index, depth);
         }
 
-        Transform backButton = container.transform.Find("BackButton");
-        if (backButton != null)
+        GameObject backButton = Instantiate(backPrefab);
+        backButton.transform.SetParent(groupContainer.transform, false);
+        backButton.transform.SetAsFirstSibling();
+
+        BackButtonHandler backHandler = backButton.GetComponent<BackButtonHandler>();
+        if (backHandler != null)
         {
-            BackButtonHandler backHandler = backButton.GetComponent<BackButtonHandler>();
-            if (backHandler != null)
-            {
-                backHandler.currentGroup = container;
-                backHandler.Initialize(gameObject.GetComponentInChildren<UIGenerator>());
-            }
+            backHandler.currentGroup = groupContainer;
+            backHandler.Initialize(cachedUIGenerator);
         }
+
+        return groupContainer;
+    }
+
+    private GameObject GetOrCreateGroupContainer(NavButton parentNav, int index, int depth)
+    {
+        if (parentNav.groupContainer != null) return parentNav.groupContainer;
+        return CreateGroupContainer(parentNav.gameObject, index, depth);
     }
 
     private GameObject FindParentGroup(int currentIndex, int currentDepth)
@@ -299,10 +285,10 @@ public class UIGenerator : UdonSharpBehaviour
         {
             if (elementDepths[i] == currentDepth - 1)
             {
-                NavButton parentToggle = allUIElements[i].GetComponent<NavButton>();
-                if (parentToggle != null)
+                NavButton parentNav = allUIElements[i].GetComponent<NavButton>();
+                if (parentNav != null)
                 {
-                    return parentToggle.groupContainer;
+                    return parentNav.groupContainer;
                 }
                 return null;
             }
@@ -318,8 +304,8 @@ public class UIGenerator : UdonSharpBehaviour
         {
             case "nav":
                 newElement = Instantiate(navPrefab);
-                NavButton tmp = newElement.GetComponentInChildren<NavButton>();
-                tmp.Initialize(gameObject.GetComponentInChildren<UIGenerator>());
+                NavButton navButton = newElement.GetComponentInChildren<NavButton>();
+                navButton.Initialize(cachedUIGenerator);
                 SetElementText(newElement, elementName);
                 break;
 
@@ -329,10 +315,10 @@ public class UIGenerator : UdonSharpBehaviour
 
                 if (!string.IsNullOrEmpty(actionType))
                 {
-                    ButtonExecute buttonWord = newElement.GetComponent<ButtonExecute>();
-                    if (buttonWord != null)
+                    ButtonExecute buttonExecute = newElement.GetComponent<ButtonExecute>();
+                    if (buttonExecute != null)
                     {
-                        AssignActionToButton(buttonWord, actionType);
+                        AssignActionToButton(buttonExecute, actionType);
                     }
                 }
                 break;
@@ -375,5 +361,16 @@ public class UIGenerator : UdonSharpBehaviour
             count++;
         }
         return count;
+    }
+
+    public override void OnDeserialization()
+    {
+        for (int i = 0; i < containerCount; i++)
+        {
+            if (uiContainers[i] != null)
+            {
+                uiContainers[i].SetActive(activeStates[i]);
+            }
+        }
     }
 }
