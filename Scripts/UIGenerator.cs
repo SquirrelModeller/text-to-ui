@@ -15,6 +15,7 @@ public class UIGenerator : UdonSharpBehaviour
     [SerializeField] private GameObject btnPrefab;
     [SerializeField] private GameObject backPrefab;
     [SerializeField] private GameObject groupPrefab;
+    [SerializeField] private GameObject textNavTitlePrefab;
     [SerializeField] private Transform contentParent;
     [SerializeField] private string[] actionIdentifiers;
     [SerializeField] private ButtonActionBase[] actionManagers;
@@ -101,7 +102,7 @@ public class UIGenerator : UdonSharpBehaviour
         {
             activeStates[indexToken.Int] = state;
         }
-        if (shouldSyncUIAcrossClients) 
+        if (shouldSyncUIAcrossClients)
         {
             RequestSerialization();
         }
@@ -110,12 +111,11 @@ public class UIGenerator : UdonSharpBehaviour
     public void HandleNavButtonPress(NavButton button)
     {
         if (button.groupContainer == null) return;
-        
+
         DataToken indexToken;
         if (nameIdToIndex.TryGetValue(new DataToken(button.groupContainer.name), out indexToken))
         {
             UpdateUIState(cachedGroupContainerScripts[indexToken.Int].parentGroup, false);
-            
         }
 
         UpdateUIState(button.groupContainer, true);
@@ -180,12 +180,12 @@ public class UIGenerator : UdonSharpBehaviour
         if (newElement == null) return;
 
         allUIElements[currentIndex] = newElement;
-        SetElementParent(newElement, currentIndex, lineDepth);
+        SetElementParent(newElement, currentIndex, lineDepth, actionType);
     }
 
     // Root elements are at depth 0, root elements do not have a parent nav
     // A parent gorup is therfore created, all navs can then be treated the same
-    private void SetElementParent(GameObject element, int currentIndex, int depth)
+    private void SetElementParent(GameObject element, int currentIndex, int depth, string navTitle)
     {
         NavButton navButton = element.GetComponent<NavButton>();
         GameObject parentGroup = null;
@@ -245,7 +245,7 @@ public class UIGenerator : UdonSharpBehaviour
                 }
                 else
                 {
-                    GameObject groupContainer = CreateGroupContainer(element, currentIndex, depth);
+                    GameObject groupContainer = CreateGroupContainer(element, currentIndex, depth, navTitle);
                     navButton.groupContainer = groupContainer;
 
                     GroupContainer groupScript = groupContainer.GetComponent<GroupContainer>();
@@ -258,7 +258,7 @@ public class UIGenerator : UdonSharpBehaviour
         }
     }
 
-    private GameObject CreateGroupContainer(GameObject navElement, int index, int depth)
+    private GameObject CreateGroupContainer(GameObject navElement, int index, int depth, string navTitle)
     {
         GameObject groupContainer = Instantiate(groupPrefab);
         groupContainer.name = $"{navElement.name}_Group";
@@ -282,13 +282,16 @@ public class UIGenerator : UdonSharpBehaviour
             backHandler.Initialize(cachedUIGenerator);
         }
 
-        return groupContainer;
-    }
 
-    private GameObject GetOrCreateGroupContainer(NavButton parentNav, int index, int depth)
-    {
-        if (parentNav.groupContainer != null) return parentNav.groupContainer;
-        return CreateGroupContainer(parentNav.gameObject, index, depth);
+        if (navTitle != "" && textNavTitlePrefab != null)
+        {
+            GameObject textNavTitle = Instantiate(textNavTitlePrefab);
+            textNavTitle.transform.SetParent(groupContainer.transform, false);
+            textNavTitle.GetComponentInChildren<TextMeshProUGUI>().text = navTitle == "-" ? navElement.name : navTitle;
+            textNavTitle.transform.SetAsFirstSibling();
+        }
+
+        return groupContainer;
     }
 
     private GameObject FindParentGroup(int currentIndex, int currentDepth)

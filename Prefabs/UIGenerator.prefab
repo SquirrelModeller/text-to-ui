@@ -57,10 +57,10 @@ MonoBehaviour:
   m_Spacing: 0
   m_ChildForceExpandWidth: 1
   m_ChildForceExpandHeight: 1
-  m_ChildControlWidth: 0
-  m_ChildControlHeight: 0
-  m_ChildScaleWidth: 0
-  m_ChildScaleHeight: 0
+  m_ChildControlWidth: 1
+  m_ChildControlHeight: 1
+  m_ChildScaleWidth: 1
+  m_ChildScaleHeight: 1
   m_ReverseArrangement: 0
 --- !u!1 &1075001236128641157
 GameObject:
@@ -189,8 +189,8 @@ MonoBehaviour:
   m_ChildForceExpandHeight: 1
   m_ChildControlWidth: 1
   m_ChildControlHeight: 1
-  m_ChildScaleWidth: 0
-  m_ChildScaleHeight: 0
+  m_ChildScaleWidth: 1
+  m_ChildScaleHeight: 1
   m_ReverseArrangement: 0
 --- !u!114 &856576537416269117
 MonoBehaviour:
@@ -266,9 +266,11 @@ MonoBehaviour:
     type: 3}
   btnPrefab: {fileID: 7287658603018703471, guid: 31d3b10e12f9f314cbe48d544f024d98,
     type: 3}
-  backPrefab: {fileID: 8085752445798712143, guid: 6d0b9fb5fff57ca4ebd2d1aad8288142,
+  backPrefab: {fileID: 7287658603018703471, guid: 7decd52c03c2ef240afef7382a46e524,
     type: 3}
   groupPrefab: {fileID: 334096083059925367, guid: 6cd4c96fa77899d458986401785c7267,
+    type: 3}
+  textNavTitlePrefab: {fileID: 7287658603018703471, guid: 6c0d28bd4d0351745967e5debf353774,
     type: 3}
   contentParent: {fileID: 3176694306934958734}
   actionIdentifiers:
