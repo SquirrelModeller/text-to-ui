@@ -27,12 +27,10 @@ public class UIGenerator : UdonSharpBehaviour
     [UdonSynced] private bool[] activeStates;
     private GameObject[] allUIElements;
     private GameObject[] uiContainers;
-    private int containerCount;
     private int groupCounter = 0;
     private int[] elementDepths;
     private UIGenerator cachedUIGenerator;
     private GroupContainer[] cachedGroupContainerScripts;
-    private GameObject rootGroup;
     private DataDictionary nameIdToIndex;
 
     private void Start()
@@ -62,14 +60,13 @@ public class UIGenerator : UdonSharpBehaviour
 
     private void CacheAllContainers()
     {
-        containerCount = 0;
+        int containerCount = 0;
 
-        if (rootGroup != null)
-        {
-            uiContainers[containerCount] = rootGroup;
-            nameIdToIndex[new DataToken(uiContainers[containerCount].name)] = new DataToken(containerCount);
-            containerCount++;
-        }
+        GameObject rootGroup = contentParent.Find("Root_Group").gameObject;
+        uiContainers[containerCount] = rootGroup;
+        nameIdToIndex[new DataToken(uiContainers[containerCount].name)] = new DataToken(containerCount);
+        containerCount++;
+
         foreach (GameObject element in allUIElements)
         {
             if (element == null) continue;
@@ -191,17 +188,20 @@ public class UIGenerator : UdonSharpBehaviour
 
         if (depth == 0)
         {
-            if (rootGroup == null)
+            Transform rootGroupTransform = contentParent.Find("Root_Group");
+            if (rootGroupTransform == null)
             {
-                rootGroup = Instantiate(groupPrefab);
+                GameObject rootGroup = Instantiate(groupPrefab);
                 rootGroup.name = "Root_Group";
                 rootGroup.transform.SetParent(contentParent, false);
                 rootGroup.SetActive(true);
-
                 rootGroup.GetComponent<GroupContainer>().parentGroup = null;
+                parentGroup = rootGroup;
             }
-
-            parentGroup = rootGroup;
+            else
+            {
+                parentGroup = rootGroupTransform.gameObject;
+            }
         }
         else
         {
@@ -359,7 +359,7 @@ public class UIGenerator : UdonSharpBehaviour
 
     public override void OnDeserialization()
     {
-        for (int i = 0; i < containerCount; i++)
+        for (int i = 0; i < MAX_ELEMENTS; i++)
         {
             if (uiContainers[i] != null)
             {
