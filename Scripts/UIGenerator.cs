@@ -187,7 +187,6 @@ public class UIGenerator : UdonSharpBehaviour
     // A parent gorup is therfore created, all navs can then be treated the same
     private void SetElementParent(GameObject element, int currentIndex, int depth, string navTitle)
     {
-        NavButton navButton = element.GetComponent<NavButton>();
         GameObject parentGroup = null;
 
         if (depth == 0)
@@ -199,12 +198,6 @@ public class UIGenerator : UdonSharpBehaviour
                 rootGroup.transform.SetParent(contentParent, false);
                 rootGroup.SetActive(true);
 
-                Transform backBtn = rootGroup.transform.Find("BackButton");
-                if (backBtn != null)
-                {
-                    Destroy(backBtn.gameObject);
-                }
-
                 rootGroup.GetComponent<GroupContainer>().parentGroup = null;
             }
 
@@ -212,48 +205,36 @@ public class UIGenerator : UdonSharpBehaviour
         }
         else
         {
-
             for (int i = currentIndex - 1; i >= 0; i--)
             {
                 if (elementDepths[i] == depth - 1)
                 {
                     NavButton parentNav = allUIElements[i].GetComponent<NavButton>();
-                    if (parentNav != null && parentNav.groupContainer != null)
-                    {
-                        parentGroup = parentNav.groupContainer;
-                        break;
-                    }
+                    parentGroup = parentNav.groupContainer;
+                    break;
                 }
             }
         }
 
-        if (parentGroup != null)
+        Transform contentArea = parentGroup.transform.Find("Content");
+        element.transform.SetParent(contentArea, false);
+
+        NavButton navButton = element.GetComponent<NavButton>();
+        if (navButton != null)
         {
-            Transform contentArea = parentGroup.transform.Find("Content");
-            if (contentArea != null)
+            GameObject existingGroup = GameObject.Find($"{element.name}_Group_{groupCounter}");
+            groupCounter++;
+            if (existingGroup != null)
             {
-                element.transform.SetParent(contentArea, false);
+                navButton.groupContainer = existingGroup;
             }
-
-            if (navButton != null)
+            else
             {
-                GameObject existingGroup = GameObject.Find($"{element.name}_Group_{groupCounter}");
-                groupCounter++;
-                if (existingGroup != null)
-                {
-                    navButton.groupContainer = existingGroup;
-                }
-                else
-                {
-                    GameObject groupContainer = CreateGroupContainer(element, currentIndex, depth, navTitle);
-                    navButton.groupContainer = groupContainer;
+                GameObject groupContainer = CreateGroupContainer(element, currentIndex, depth, navTitle);
+                navButton.groupContainer = groupContainer;
 
-                    GroupContainer groupScript = groupContainer.GetComponent<GroupContainer>();
-                    if (groupScript != null)
-                    {
-                        groupScript.parentGroup = parentGroup;
-                    }
-                }
+                GroupContainer groupScript = groupContainer.GetComponent<GroupContainer>();
+                groupScript.parentGroup = parentGroup;
             }
         }
     }
@@ -266,21 +247,17 @@ public class UIGenerator : UdonSharpBehaviour
         groupContainer.SetActive(false);
 
         GroupContainer groupScript = groupContainer.GetComponent<GroupContainer>();
-        if (groupScript != null)
-        {
-            groupScript.parentGroup = FindParentGroup(index, depth);
-        }
+
+        groupScript.parentGroup = FindParentGroup(index, depth);
 
         GameObject backButton = Instantiate(backPrefab);
         backButton.transform.SetParent(groupContainer.transform, false);
         backButton.transform.SetAsFirstSibling();
 
         BackButtonHandler backHandler = backButton.GetComponent<BackButtonHandler>();
-        if (backHandler != null)
-        {
-            backHandler.currentGroup = groupContainer;
-            backHandler.Initialize(cachedUIGenerator);
-        }
+
+        backHandler.currentGroup = groupContainer;
+        backHandler.Initialize(cachedUIGenerator);
 
 
         if (navTitle != "" && textNavTitlePrefab != null)
