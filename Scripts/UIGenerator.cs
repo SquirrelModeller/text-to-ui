@@ -32,12 +32,12 @@ public class UIGenerator : UdonSharpBehaviour
     private const int INDENT_SIZE = 2;
 
     [UdonSynced] private bool[] activeStates;
-    private GameObject[] allUIElements;
-    private GameObject[] uiContainers;
+    private DataList allUIElements;
+    private DataList uiContainers;
     private int groupCounter = 0;
-    private int[] elementDepths;
+    private DataList elementDepths;
     private UIGenerator cachedUIGenerator;
-    private GroupContainer[] cachedGroupContainerScripts;
+    private DataList cachedGroupContainerScripts;
     private DataDictionary nameIdToIndex;
 
     private void Start()
@@ -56,11 +56,11 @@ public class UIGenerator : UdonSharpBehaviour
 
     private void InitializeArrays()
     {
-        allUIElements = new GameObject[MAX_ELEMENTS];
-        elementDepths = new int[MAX_ELEMENTS];
+        allUIElements = new DataList();
+        elementDepths = new DataList();
         activeStates = new bool[MAX_ELEMENTS];
-        uiContainers = new GameObject[MAX_ELEMENTS];
-        cachedGroupContainerScripts = new GroupContainer[MAX_ELEMENTS];
+        uiContainers = new DataList();
+        cachedGroupContainerScripts = new DataList();
         cachedUIGenerator = gameObject.GetComponentInChildren<UIGenerator>();
         nameIdToIndex = new DataDictionary();
     }
@@ -70,22 +70,19 @@ public class UIGenerator : UdonSharpBehaviour
         int containerCount = 0;
 
         GameObject rootGroup = contentParent.Find("Root_Group").gameObject;
-        uiContainers[containerCount] = rootGroup;
-        nameIdToIndex[new DataToken(uiContainers[containerCount].name)] = new DataToken(containerCount);
+        uiContainers.Add(rootGroup);
+        nameIdToIndex[new DataToken(((GameObject)uiContainers[containerCount].Reference).name)] = new DataToken(containerCount);
         containerCount++;
 
-        foreach (GameObject element in allUIElements)
+        for (int i = 0; i < allUIElements.Count; i++) 
         {
-            if (element == null) continue;
+            NavButton navButton = ((GameObject)allUIElements[i].Reference).GetComponent<NavButton>();
+            if (navButton == null || navButton.groupContainer == null) continue;
 
-            NavButton navButton = element.GetComponent<NavButton>();
-            if (navButton != null && navButton.groupContainer != null)
-            {
-                uiContainers[containerCount] = navButton.groupContainer;
-                cachedGroupContainerScripts[containerCount] = navButton.groupContainer.GetComponent<GroupContainer>();
-                nameIdToIndex[new DataToken(uiContainers[containerCount].name)] = new DataToken(containerCount);
-                containerCount++;
-            }
+            uiContainers.Add(navButton.groupContainer);
+            cachedGroupContainerScripts.Add(navButton.groupContainer.GetComponent<GroupContainer>());
+            nameIdToIndex[new DataToken(((GameObject)uiContainers[containerCount].Reference).name)] = new DataToken(containerCount);
+            containerCount++;
         }
     }
 
@@ -119,7 +116,7 @@ public class UIGenerator : UdonSharpBehaviour
         DataToken indexToken;
         if (nameIdToIndex.TryGetValue(new DataToken(button.groupContainer.name), out indexToken))
         {
-            UpdateUIState(cachedGroupContainerScripts[indexToken.Int].parentGroup, false);
+            UpdateUIState(((GroupContainer)cachedGroupContainerScripts[indexToken.Int-1].Reference).parentGroup, false);
         }
 
         UpdateUIState(button.groupContainer, true);
@@ -133,7 +130,7 @@ public class UIGenerator : UdonSharpBehaviour
         DataToken indexToken;
         if (nameIdToIndex.TryGetValue(new DataToken(backButton.currentGroup.name), out indexToken))
         {
-            groupScript = cachedGroupContainerScripts[indexToken.Int];
+            groupScript = (GroupContainer)cachedGroupContainerScripts[indexToken.Int-1].Reference;
         }
         if (groupScript != null && groupScript.parentGroup != null)
         {
@@ -171,7 +168,7 @@ public class UIGenerator : UdonSharpBehaviour
     private void ProcessConfigLine(string line, int currentIndex)
     {
         int lineDepth = CountLeadingSpaces(line) / INDENT_SIZE;
-        elementDepths[currentIndex] = lineDepth;
+        elementDepths.Add(lineDepth);
 
         string[] parts = line.Trim().Split(new[] { '(', ')', ',' }, StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length < 2) return;
@@ -183,7 +180,7 @@ public class UIGenerator : UdonSharpBehaviour
         GameObject newElement = CreateUIElement(elementType, elementName, actionType);
         if (newElement == null) return;
 
-        allUIElements[currentIndex] = newElement;
+        allUIElements.Add(newElement);
         SetElementParent(newElement, currentIndex, lineDepth, actionType);
     }
 
@@ -214,9 +211,9 @@ public class UIGenerator : UdonSharpBehaviour
         {
             for (int i = currentIndex - 1; i >= 0; i--)
             {
-                if (elementDepths[i] == depth - 1)
+                if (elementDepths[i].Int == depth - 1)
                 {
-                    NavButton parentNav = allUIElements[i].GetComponent<NavButton>();
+                    NavButton parentNav = ((GameObject)allUIElements[i].Reference).GetComponent<NavButton>();
                     parentGroup = parentNav.groupContainer;
                     break;
                 }
@@ -284,9 +281,9 @@ public class UIGenerator : UdonSharpBehaviour
 
         for (int i = currentIndex - 1; i >= 0; i--)
         {
-            if (elementDepths[i] == currentDepth - 1)
+            if (elementDepths[i].Int == currentDepth - 1)
             {
-                NavButton parentNav = allUIElements[i].GetComponent<NavButton>();
+                NavButton parentNav = ((GameObject)allUIElements[i].Reference).GetComponent<NavButton>();
                 if (parentNav != null)
                 {
                     return parentNav.groupContainer;
@@ -368,9 +365,9 @@ public class UIGenerator : UdonSharpBehaviour
     {
         for (int i = 0; i < MAX_ELEMENTS; i++)
         {
-            if (uiContainers[i] != null)
+            if (((GameObject)uiContainers[i].Reference) != null)
             {
-                uiContainers[i].SetActive(activeStates[i]);
+                ((GameObject)uiContainers[i].Reference).SetActive(activeStates[i]);
             }
         }
     }
