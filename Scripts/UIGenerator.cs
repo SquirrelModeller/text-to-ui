@@ -21,6 +21,13 @@ public class UIGenerator : UdonSharpBehaviour
     [SerializeField] private ButtonActionBase[] actionManagers;
     [SerializeField] private bool shouldSyncUIAcrossClients;
 
+    [SerializeField]
+    [Tooltip("Path to the header transform")]
+    private string headerPath = "";
+
+    [SerializeField]
+    [Tooltip("Path to the content transform")]
+    private string contentPath = "";
     private const int MAX_ELEMENTS = 100;
     private const int INDENT_SIZE = 2;
 
@@ -132,7 +139,7 @@ public class UIGenerator : UdonSharpBehaviour
         {
             UpdateUIState(groupScript.parentGroup, true);
 
-            Transform parentContent = groupScript.parentGroup.transform.Find("Content");
+            Transform parentContent = groupScript.parentGroup.transform.Find(contentPath);
             if (parentContent != null)
             {
                 for (int i = 0; i < parentContent.childCount; i++)
@@ -216,7 +223,7 @@ public class UIGenerator : UdonSharpBehaviour
             }
         }
 
-        Transform contentArea = parentGroup.transform.Find("Content");
+        Transform contentArea = parentGroup.transform.Find(contentPath);
         element.transform.SetParent(contentArea, false);
 
         NavButton navButton = element.GetComponent<NavButton>();
@@ -251,7 +258,7 @@ public class UIGenerator : UdonSharpBehaviour
         groupScript.parentGroup = FindParentGroup(index, depth);
 
         GameObject backButton = Instantiate(backPrefab);
-        backButton.transform.SetParent(groupContainer.transform, false);
+        backButton.transform.SetParent(groupContainer.transform.Find(headerPath), false);
         backButton.transform.SetAsFirstSibling();
 
         BackButtonHandler backHandler = backButton.GetComponent<BackButtonHandler>();
@@ -263,9 +270,9 @@ public class UIGenerator : UdonSharpBehaviour
         if (navTitle != "" && textNavTitlePrefab != null)
         {
             GameObject textNavTitle = Instantiate(textNavTitlePrefab);
-            textNavTitle.transform.SetParent(groupContainer.transform, false);
+            textNavTitle.transform.SetParent(groupContainer.transform.Find(headerPath), false);
             textNavTitle.GetComponentInChildren<TextMeshProUGUI>().text = navTitle == "-" ? navElement.name : navTitle;
-            textNavTitle.transform.SetAsFirstSibling();
+
         }
 
         return groupContainer;
