@@ -363,12 +363,9 @@ public class UIGenerator : UdonSharpBehaviour
 
     public override void OnDeserialization()
     {
-        for (int i = 0; i < MAX_ELEMENTS; i++)
+        for (int i = 0; i < uiContainers.Count; i++)
         {
-            if (((GameObject)uiContainers[i].Reference) != null)
-            {
-                ((GameObject)uiContainers[i].Reference).SetActive(activeStates[i]);
-            }
+            ((GameObject)uiContainers[i].Reference).SetActive(activeStates[i]);
         }
     }
 }
